@@ -1,10 +1,11 @@
 FROM gradle:8.5-jdk17
 
+# Install minimal dependencies
 RUN apt-get update && apt-get install -y curl unzip && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Download SonarQube Scanner
+# Download SonarQube Scanner (industry standard version)
 RUN curl -fsSL https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip -o sonar-scanner.zip && \
     unzip sonar-scanner.zip && \
     rm sonar-scanner.zip && \
@@ -14,7 +15,11 @@ RUN curl -fsSL https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/s
 # Copy source code
 COPY . .
 
-# Run scanner
+# Optimized for incremental scanning
+# 1GB heap = enough for changed files only (not full codebase)
+# G1GC = efficient garbage collection
+ENV SONAR_SCANNER_OPTS="-Xmx1g -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+
 ENTRYPOINT ["/opt/sonar-scanner/bin/sonar-scanner", \
     "-Dsonar.projectBaseDir=/app", \
     "-Dsonar.sourceEncoding=UTF-8"]
