@@ -26,18 +26,18 @@ pipeline {
             }
         }
         
-        stage('🐳 Docker Build (Optimized)') {
+        stage('🐳 Docker Build') {
             steps {
                 echo "Building Docker image..."
                 sh 'docker build -f SonarqubeDockerfile -t ${DOCKER_IMAGE} .'
             }
         }
         
-        stage('🔍 SonarQube Incremental Scan') {
+        stage('🔍 SonarQube Scan') {
             steps {
                 echo "=========================================="
-                echo "Running INCREMENTAL source-only scan"
-                echo "Expected time: 3-5 minutes"
+                echo "Running SonarQube scan"
+                echo "Expected time: 5-10 minutes"
                 echo "=========================================="
                 
                 sh '''
@@ -51,9 +51,7 @@ pipeline {
                       -Dsonar.login=${SONAR_TOKEN} \
                       -Dsonar.projectKey=${PROJECT_KEY} \
                       -Dsonar.sourceEncoding=UTF-8 \
-                      -Dsonar.sources=src \
-                      -Dsonar.exclusions="**/*.java,**/test/**,**/node_modules/**,**/build/**,**/target/**,**/.gradle/**,**/.m2/**,**/*.min.js,**/*.min.css,**/dist/**" \
-                      -Dsonar.java.binaries=.
+                      -Dsonar.exclusions="**/*.java,**/test/**,**/node_modules/**,**/build/**,**/target/**,**/.gradle/**,**/.m2/**,**/*.min.js,**/*.min.css,**/dist/**,**/*.xml,**/*.properties"
                 '''
             }
         }
