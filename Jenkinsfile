@@ -40,35 +40,28 @@ pipeline {
                 echo "Expected time: 3-5 minutes"
                 echo "=========================================="
                 
-                script {
-                    def sonarArgs = '''
-                        -Dsonar.host.url=${SONAR_HOST} \
-                        -Dsonar.login=${SONAR_TOKEN} \
-                        -Dsonar.projectKey=${PROJECT_KEY} \
-                        -Dsonar.sourceEncoding=UTF-8 \
-                        -Dsonar.exclusions="**/test/**,**/node_modules/**,**/build/**,**/target/**,**/.gradle/**,**/.m2/**,**/*.min.js,**/*.min.css,**/dist/**,**/*.xml,**/*.properties" \
-                        -Dsonar.coverage.exclusions="**/test/**,**/*Test.java"
-                    '''
-                    
-                    if (env.BRANCH_NAME == 'main') {
+                sh '''
+                    if [ "${BRANCH_NAME}" = "main" ]; then
                         echo "Full scan on main branch (baseline)"
-                        sonarArgs += " -Dsonar.scanAllFiles=true"
-                    } else {
+                        SCAN_ARGS="-Dsonar.scanAllFiles=true"
+                    else
                         echo "Incremental scan on feature branch (changed files only)"
-                        sonarArgs += " -Dsonar.newCodeDefinitionType=REFERENCE_BRANCH"
-                        sonarArgs += " -Dsonar.newCodeDefinitionValue=main"
-                    }
+                        SCAN_ARGS="-Dsonar.newCodeDefinitionType=REFERENCE_BRANCH -Dsonar.newCodeDefinitionValue=main"
+                    fi
                     
-                    sh """
-                        docker run --rm \
-                          -m 2g \
-                          -e SONAR_HOST_URL=\${SONAR_HOST} \
-                          -e SONAR_LOGIN=\${SONAR_TOKEN} \
-                          -e SONAR_SCANNER_OPTS="-Xmx1g -XX:+UseG1GC" \
-                          \${DOCKER_IMAGE} \
-                          ${sonarArgs}
-                    """
-                }
+                    docker run --rm \
+                      -m 2g \
+                      -e SONAR_HOST_URL=${SONAR_HOST} \
+                      -e SONAR_LOGIN=${SONAR_TOKEN} \
+                      -e SONAR_SCANNER_OPTS="-Xmx1g -XX:+UseG1GC" \
+                      ${DOCKER_IMAGE} \
+                      -Dsonar.host.url=${SONAR_HOST} \
+                      -Dsonar.login=${SONAR_TOKEN} \
+                      -Dsonar.projectKey=${PROJECT_KEY} \
+                      -Dsonar.sourceEncoding=UTF-8 \
+                      -Dsonar.exclusions="**/test/**,**/node_modules/**,**/build/**,**/target/**,**/.gradle/**,**/.m2/**,**/*.min.js,**/*.min.css,**/dist/**,**/*.xml,**/*.properties" \
+                      ${SCAN_ARGS}
+                '''
             }
         }
         
