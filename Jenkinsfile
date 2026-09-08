@@ -28,7 +28,7 @@ pipeline {
         
         stage('🐳 Docker Build (Optimized)') {
             steps {
-                echo "Building Docker image for incremental scan..."
+                echo "Building Docker image..."
                 sh 'docker build -f SonarqubeDockerfile -t ${DOCKER_IMAGE} .'
             }
         }
@@ -36,19 +36,11 @@ pipeline {
         stage('🔍 SonarQube Incremental Scan') {
             steps {
                 echo "=========================================="
-                echo "Running INCREMENTAL scan (changed files only)"
+                echo "Running INCREMENTAL source-only scan"
                 echo "Expected time: 3-5 minutes"
                 echo "=========================================="
                 
                 sh '''
-                    if [ "${BRANCH_NAME}" = "main" ]; then
-                        echo "Full scan on main branch (baseline)"
-                        SCAN_ARGS="-Dsonar.scanAllFiles=true"
-                    else
-                        echo "Incremental scan on feature branch (changed files only)"
-                        SCAN_ARGS="-Dsonar.newCodeDefinitionType=REFERENCE_BRANCH -Dsonar.newCodeDefinitionValue=main"
-                    fi
-                    
                     docker run --rm \
                       -m 2g \
                       -e SONAR_HOST_URL=${SONAR_HOST} \
@@ -59,8 +51,9 @@ pipeline {
                       -Dsonar.login=${SONAR_TOKEN} \
                       -Dsonar.projectKey=${PROJECT_KEY} \
                       -Dsonar.sourceEncoding=UTF-8 \
-                      -Dsonar.exclusions="**/test/**,**/node_modules/**,**/build/**,**/target/**,**/.gradle/**,**/.m2/**,**/*.min.js,**/*.min.css,**/dist/**,**/*.xml,**/*.properties" \
-                      ${SCAN_ARGS}
+                      -Dsonar.sources=src \
+                      -Dsonar.exclusions="**/*.java,**/test/**,**/node_modules/**,**/build/**,**/target/**,**/.gradle/**,**/.m2/**,**/*.min.js,**/*.min.css,**/dist/**" \
+                      -Dsonar.java.binaries=.
                 '''
             }
         }
@@ -69,7 +62,7 @@ pipeline {
             steps {
                 script {
                     echo "=========================================="
-                    echo "Checking Quality Gate (NEW ISSUES ONLY)"
+                    echo "Checking Quality Gate"
                     echo "=========================================="
                     
                     def qgStatus = 'UNKNOWN'
