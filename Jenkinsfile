@@ -3,7 +3,7 @@ pipeline {
     
     options {
         buildDiscarder(logRotator(numToKeepStr: '10'))
-        timeout(time: 15, unit: 'MINUTES')  # Reduced from 30 (incremental is faster)
+        timeout(time: 15, unit: 'MINUTES')
         timestamps()
     }
     
@@ -33,7 +33,7 @@ pipeline {
             }
         }
         
-        stage('🔍 SonarQube Incremental Scan (Industry Standard)') {
+        stage('🔍 SonarQube Incremental Scan') {
             steps {
                 echo "=========================================="
                 echo "Running INCREMENTAL scan (changed files only)"
@@ -50,23 +50,16 @@ pipeline {
                         -Dsonar.coverage.exclusions="**/test/**,**/*Test.java"
                     '''
                     
-                    // Incremental: Only changed files (Google/Netflix standard)
                     if (env.BRANCH_NAME == 'main') {
-                        echo "🔄 Main branch: Full scan (baseline)"
+                        echo "Full scan on main branch (baseline)"
                         sonarArgs += " -Dsonar.scanAllFiles=true"
                     } else {
-                        echo "🎯 PR branch: Incremental scan (changed files only)"
-                        // SonarQube Community Edition doesn't support PR-mode natively
-                        // So we use reference branch to compare against main
+                        echo "Incremental scan on feature branch (changed files only)"
                         sonarArgs += " -Dsonar.newCodeDefinitionType=REFERENCE_BRANCH"
                         sonarArgs += " -Dsonar.newCodeDefinitionValue=main"
                     }
                     
                     sh """
-                        echo "Starting scan with arguments:"
-                        echo "${sonarArgs}"
-                        echo ""
-                        
                         docker run --rm \
                           -m 2g \
                           -e SONAR_HOST_URL=\${SONAR_HOST} \
@@ -79,12 +72,11 @@ pipeline {
             }
         }
         
-        stage('⏱️ Quality Gate Check (New Code Only)') {
+        stage('⏱️ Quality Gate Check') {
             steps {
                 script {
                     echo "=========================================="
                     echo "Checking Quality Gate (NEW ISSUES ONLY)"
-                    echo "Ignoring old code issues"
                     echo "=========================================="
                     
                     def qgStatus = 'UNKNOWN'
@@ -120,9 +112,9 @@ pipeline {
                     }
                     
                     if (qgStatus != 'OK') {
-                        error("❌ Quality Gate FAILED - Status: ${qgStatus}")
+                        error("Quality Gate FAILED - Status: ${qgStatus}")
                     } else {
-                        echo "✅ Quality Gate PASSED"
+                        echo "Quality Gate PASSED"
                     }
                 }
             }
@@ -132,7 +124,7 @@ pipeline {
             steps {
                 script {
                     def status = currentBuild.result == 'SUCCESS' ? 'success' : 'failure'
-                    def description = currentBuild.result == 'SUCCESS' ? '✅ Code Quality OK' : '❌ Quality Gate Failed'
+                    def description = currentBuild.result == 'SUCCESS' ? 'Code Quality OK' : 'Quality Gate Failed'
                     
                     try {
                         sh '''
@@ -145,9 +137,9 @@ pipeline {
                               https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/statuses/${GIT_COMMIT} \
                               -d "{\\"state\\":\\"${status}\\",\\"description\\":\\"${description}\\",\\"context\\":\\"SonarQube/QualityGate\\",\\"target_url\\":\\"${SONAR_HOST}/dashboard?id=${PROJECT_KEY}\\"}"
                         '''
-                        echo "GitHub status posted successfully"
+                        echo "GitHub status posted"
                     } catch (Exception e) {
-                        echo "⚠️ Warning: GitHub status post failed: ${e.message}"
+                        echo "Warning: GitHub status post failed"
                     }
                 }
             }
@@ -157,22 +149,17 @@ pipeline {
     post {
         always {
             sh '''
-                echo "Cleaning up Docker image: ${DOCKER_IMAGE}"
                 docker rmi ${DOCKER_IMAGE} || true
                 docker system prune -f
             '''
         }
         
         success {
-            echo "=========================================="
-            echo "✅ Pipeline completed successfully"
-            echo "=========================================="
+            echo "Pipeline completed successfully"
         }
         
         failure {
-            echo "=========================================="
-            echo "❌ Pipeline failed"
-            echo "=========================================="
+            echo "Pipeline failed"
         }
     }
 }
